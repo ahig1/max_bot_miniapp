@@ -2,7 +2,7 @@ import { CssBaseline } from "@mui/material";
 import { ThemeProvider } from "@mui/material/styles";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Suspense, lazy, useEffect, useMemo } from "react";
-import { expandWebapp } from "./api/telegram";
+import { expandWebapp, getLaunchPayload } from "./api/telegram";
 import { Loading } from "./components/Loading/Loading";
 import { useTheme } from "./hooks/useTheme";
 import { ManagerOrderStatusType, PersonalOrderStatusType, RegistrationType } from "./pages/OrdersFilter/OrderFilterModel";
@@ -110,35 +110,42 @@ function App() {
   );
 }
 
-function str(value: string | null) {
-  return value?.replaceAll("%20", " ");
+function str(value: string | null | undefined) {
+  if (value == null) return undefined;
+  return String(value).replaceAll("%20", " ");
 }
 
 function number<T extends number | undefined>(
-  value: string | null,
+  value: string | null | undefined,
   defaultValue: T
 ): number | T {
-  const _value = value ? parseInt(value, 10) : defaultValue;
+  const _value = value ? parseInt(String(value), 10) : defaultValue;
   return _value !== undefined && isFinite(_value) ? _value : defaultValue;
+}
+
+/**
+ * Получение параметра: сначала из URL, затем из payload OpenAppButton.
+ */
+function param(urlParams: URLSearchParams, payload: Record<string, unknown>, key: string): string | null {
+  return urlParams.get(key) ?? (payload[key] != null ? String(payload[key]) : null);
 }
 
 function getOrdersFilterTgData() {
   const urlParams = new URLSearchParams(window.location.search);
-  const initialRegistrationType = str(urlParams.get("registrationType")) as
+  const payload = getLaunchPayload();
+  const initialRegistrationType = str(param(urlParams, payload, "registrationType")) as
     | RegistrationType
     | undefined;
-  const initialOrderStatus = str(urlParams.get("orderStatus")) as
+  const initialOrderStatus = str(param(urlParams, payload, "orderStatus")) as
     | PersonalOrderStatusType
     | ManagerOrderStatusType
     | undefined;
-  const availableRegistrationTypes =
-    str(urlParams.get("availableRegistrationTypes"))?.split(",") ?? [];
-  const initialStartDate = urlParams.get("startDate")
-    ? new Date(urlParams.get("startDate")!)
-    : undefined;
-  const initialEndDate = urlParams.get("endDate")
-    ? new Date(urlParams.get("endDate")!)
-    : undefined;
+  const rawTypes = str(param(urlParams, payload, "availableRegistrationTypes"));
+  const availableRegistrationTypes = rawTypes?.split(",") ?? [];
+  const startDateRaw = param(urlParams, payload, "startDate");
+  const initialStartDate = startDateRaw ? new Date(startDateRaw) : undefined;
+  const endDateRaw = param(urlParams, payload, "endDate");
+  const initialEndDate = endDateRaw ? new Date(endDateRaw) : undefined;
   return {
     initialRegistrationType,
     initialOrderStatus,
@@ -150,25 +157,28 @@ function getOrdersFilterTgData() {
 
 function getTelegramData() {
   const urlParams = new URLSearchParams(window.location.search);
-  const formType = str(urlParams.get("formType"));
-  const phone = str(urlParams.get("phone")) ?? "";
-  const cityId = parseInt(urlParams.get("cityId") ?? "0", 10);
-  const cityName = str(urlParams.get("cityName")) ?? "";
-  const pvzId = str(urlParams.get("pvzId")) ?? undefined;
-  const firstName = str(urlParams.get("firstName")) ?? undefined;
-  const lastName = str(urlParams.get("lastName")) ?? undefined;
-  const disableName = urlParams.get("disableName") === "true";
-  const isAuthenticated = urlParams.get("isAuthenticated") === "true";
-  const initialCar = str(urlParams.get("car")) ?? undefined;
-  const initialVin = str(urlParams.get("vin")) ?? undefined;
-  const initialPartName = str(urlParams.get("partName")) ?? undefined;
-  const initialCarModel = str(urlParams.get("carModel")) ?? undefined;
-  const initialCarYear = number(urlParams.get("carYear"), undefined);
-  const initialDeliveryType = str(urlParams.get("deliveryType")) as
+  const payload = getLaunchPayload();
+  const formType = str(param(urlParams, payload, "formType"));
+  const phone = str(param(urlParams, payload, "phone")) ?? "";
+  const cityId = parseInt(String(param(urlParams, payload, "cityId") ?? "0"), 10);
+  const cityName = str(param(urlParams, payload, "cityName")) ?? "";
+  const pvzId = str(param(urlParams, payload, "pvzId")) ?? undefined;
+  const firstName = str(param(urlParams, payload, "firstName")) ?? undefined;
+  const lastName = str(param(urlParams, payload, "lastName")) ?? undefined;
+  const disableNameRaw = payload["disableName"];
+  const disableName = param(urlParams, payload, "disableName") === "true" || disableNameRaw === true;
+  const isAuthRaw = payload["isAuthenticated"];
+  const isAuthenticated = param(urlParams, payload, "isAuthenticated") === "true" || isAuthRaw === true;
+  const initialCar = str(param(urlParams, payload, "car")) ?? undefined;
+  const initialVin = str(param(urlParams, payload, "vin")) ?? undefined;
+  const initialPartName = str(param(urlParams, payload, "partName")) ?? undefined;
+  const initialCarModel = str(param(urlParams, payload, "carModel")) ?? undefined;
+  const initialCarYear = number(param(urlParams, payload, "carYear"), undefined);
+  const initialDeliveryType = str(param(urlParams, payload, "deliveryType")) as
     | DeliveryType
     | undefined;
   const initialTransportCompanyId = number(
-    urlParams.get("transportCompanyId"),
+    param(urlParams, payload, "transportCompanyId"),
     0
   );
   const city = cityId ? { id: cityId, name: cityName } : undefined;

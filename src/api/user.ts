@@ -1,11 +1,19 @@
 import { API_URL } from "./common";
+import { getLaunchPayload } from "./telegram";
 
 const AUTH_HEADER = "X-Telegram-User-Auth";
 
-function getMessageParams() {
+function getParam(key: string): string {
     const urlParams = new URLSearchParams(window.location.search);
-    const telegramId = parseInt(urlParams.get("telegramId") || "0");
-    const messageId = parseInt(urlParams.get("messageId") || "0");
+    const urlVal = urlParams.get(key);
+    if (urlVal != null) return urlVal;
+    const payload = getLaunchPayload();
+    return payload[key] != null ? String(payload[key]) : "";
+}
+
+function getMessageParams() {
+    const telegramId = parseInt(getParam("telegramId") || "0");
+    const messageId = parseInt(getParam("messageId") || "0");
     return {
         telegramId,
         messageId,
@@ -13,9 +21,8 @@ function getMessageParams() {
 }
 
 function getAuthParams() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const telegramId = parseInt(urlParams.get("telegramId") || "0");
-    const authToken = urlParams.get("authToken") || "";
+    const telegramId = parseInt(getParam("telegramId") || "0");
+    const authToken = getParam("authToken") || "";
     return {
         telegramId,
         authToken,

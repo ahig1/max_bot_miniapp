@@ -20,6 +20,28 @@ export function getInitData(): string {
 }
 
 /**
+ * Получение payload из OpenAppButton (параметры запуска мини-приложения).
+ * В MAX payload передаётся через initData, в Telegram — через start_param или аналог.
+ * Возвращает распарсенный объект или пустой объект.
+ */
+export function getLaunchPayload(): Record<string, unknown> {
+    try {
+        if (isMax) {
+            const raw = window.WebApp?.initDataUnsafe?.payload
+                || window.WebApp?.payload;
+            if (raw) return typeof raw === 'string' ? JSON.parse(raw) : raw;
+        }
+        if (isTg) {
+            const raw = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+            if (raw) return typeof raw === 'string' ? JSON.parse(raw) : raw;
+        }
+    } catch (e) {
+        console.warn("Failed to parse launch payload:", e);
+    }
+    return {};
+}
+
+/**
  * Отправка данных обратно в чат. 
  * ВАЖНО: В MAX нет прямого аналога sendData. 
  * Рекомендуется отправлять данные на свой бекенд через fetch(), 
