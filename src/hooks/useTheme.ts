@@ -27,7 +27,6 @@ export function useTheme() {
     });
 
     return () => {
-      // @ts-expect-error define types for telegram webapp
       window.Telegram?.WebApp.offEvent("themeChanged");
     };
   }, [themeParams]);
