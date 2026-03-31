@@ -1,4 +1,5 @@
 import { API_URL } from "./common";
+import { getLaunchPayload } from "./telegram";
 
 const AUTH_HEADER = "X-Telegram-User-Auth";
 
@@ -7,7 +8,10 @@ function getParam(key: string): string {
     const val = searchParams.get(key);
     if (val != null) return val;
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    return hashParams.get(key) ?? "";
+    const hashVal = hashParams.get(key);
+    if (hashVal != null) return hashVal;
+    const payload = getLaunchPayload();
+    return payload[key] != null ? String(payload[key]) : "";
 }
 
 function getMessageParams() {

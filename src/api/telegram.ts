@@ -21,19 +21,33 @@ export function getInitData(): string {
 
 /**
  * Получение payload из OpenAppButton (параметры запуска мини-приложения).
- * В MAX payload передаётся через initData, в Telegram — через start_param или аналог.
+ * Payload передаётся как base64url-encoded JSON строка.
  * Возвращает распарсенный объект или пустой объект.
  */
 export function getLaunchPayload(): Record<string, unknown> {
     try {
-        if (isMax) {
-            const raw = window.WebApp?.initDataUnsafe?.payload
-                || window.WebApp?.payload;
-            if (raw) return typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const raw = isMax
+            ? (window.WebApp?.initDataUnsafe?.payload || window.WebApp?.payload)
+            : (isTg ? window.Telegram?.WebApp?.initDataUnsafe?.start_param : null);
+
+        if (!raw || typeof raw !== 'string') return {};
+
+        // Try base64url decode first
+        try {
+            const padded = raw + '='.repeat((4 - raw.length % 4) % 4);
+            const decoded = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
+            const parsed = JSON.parse(decoded);
+            if (typeof parsed === 'object' && parsed !== null) return parsed;
+        } catch {
+            // Not base64, try as raw JSON
         }
-        if (isTg) {
-            const raw = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-            if (raw) return typeof raw === 'string' ? JSON.parse(raw) : raw;
+
+        // Try raw JSON
+        try {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed === 'object' && parsed !== null) return parsed;
+        } catch {
+            // Not JSON either
         }
     } catch (e) {
         console.warn("Failed to parse launch payload:", e);

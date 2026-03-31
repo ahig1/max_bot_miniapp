@@ -2,7 +2,7 @@ import { CssBaseline } from "@mui/material";
 import { ThemeProvider } from "@mui/material/styles";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Suspense, lazy, useEffect, useMemo } from "react";
-import { expandWebapp } from "./api/telegram";
+import { expandWebapp, getLaunchPayload } from "./api/telegram";
 import { Loading } from "./components/Loading/Loading";
 import { useTheme } from "./hooks/useTheme";
 import { ManagerOrderStatusType, PersonalOrderStatusType, RegistrationType } from "./pages/OrdersFilter/OrderFilterModel";
@@ -124,16 +124,24 @@ function number<T extends number | undefined>(
 }
 
 /**
- * Получение параметров: сначала из URL query (?), затем из hash fragment (#).
- * Hash используется для Max, чтобы базовый URL совпадал с зарегистрированной ссылкой.
+ * Получение параметров: из URL query (?), hash fragment (#), и payload из initData.
+ * Payload — base64url-encoded JSON, передаётся через OpenAppButton в Max.
  */
 function getParams(): URLSearchParams {
   const searchParams = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const payload = getLaunchPayload();
+
   // Merge: hash params fill in anything missing from search params
   for (const [key, value] of hashParams) {
     if (!searchParams.has(key)) {
       searchParams.set(key, value);
+    }
+  }
+  // Merge: payload fills in anything still missing
+  for (const [key, value] of Object.entries(payload)) {
+    if (!searchParams.has(key) && value != null) {
+      searchParams.set(key, String(value));
     }
   }
   return searchParams;
