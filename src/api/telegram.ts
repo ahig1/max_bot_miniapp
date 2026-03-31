@@ -20,53 +20,39 @@ export function getInitData(): string {
 }
 
 /**
- * Получение payload из OpenAppButton (параметры запуска мини-приложения).
- * Payload передаётся как base64url-encoded JSON строка.
- * Возвращает распарсенный объект или пустой объект.
- */
-export function getLaunchPayload(): Record<string, unknown> {
-    try {
-        const raw = isMax
-            ? (window.WebApp?.initDataUnsafe?.payload || window.WebApp?.payload)
-            : (isTg ? window.Telegram?.WebApp?.initDataUnsafe?.start_param : null);
-
-        if (!raw || typeof raw !== 'string') return {};
-
-        // Try base64url decode first
-        try {
-            const padded = raw + '='.repeat((4 - raw.length % 4) % 4);
-            const decoded = atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
-            const parsed = JSON.parse(decoded);
-            if (typeof parsed === 'object' && parsed !== null) return parsed;
-        } catch {
-            // Not base64, try as raw JSON
-        }
-
-        // Try raw JSON
-        try {
-            const parsed = JSON.parse(raw);
-            if (typeof parsed === 'object' && parsed !== null) return parsed;
-        } catch {
-            // Not JSON either
-        }
-    } catch (e) {
-        console.warn("Failed to parse launch payload:", e);
-    }
-    return {};
-}
-
-/**
- * Отправка данных обратно в чат. 
- * ВАЖНО: В MAX нет прямого аналога sendData. 
- * Рекомендуется отправлять данные на свой бекенд через fetch(), 
- * а бекенд уже сам отправит сообщение в чат через API.
+ * Отправка данных обратно в чат.
+ * В Telegram используется sendData, в MAX — POST на бекенд.
  */
 export async function sendDataToBot(data: unknown) {
     if (isTg && window.Telegram?.WebApp?.sendData) {
         await window.Telegram.WebApp.sendData(JSON.stringify(data));
     } else if (isMax) {
-        console.warn("В MAX отправка данных напрямую в чат (sendData) не поддерживается. Используйте REST API бекенда.");
-        // Здесь в будущем можно сделать fallback на fetch-запрос к твоему API
+        const initDataUnsafe = window.WebApp?.initDataUnsafe;
+        const userId = initDataUnsafe?.user?.id;
+        const chatId = initDataUnsafe?.chat?.id;
+
+        if (!userId || !chatId) {
+            console.error("Cannot submit form: missing userId or chatId from initDataUnsafe");
+            return;
+        }
+
+        const { API_URL } = await import("./common");
+        const response = await fetch(`${API_URL}/forms/submit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                formData: data,
+                userId,
+                chatId,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Form submission failed: ${response.status}`);
+        }
+
+        // Close the mini app after successful submission
+        closeWebApp();
     }
 }
 
