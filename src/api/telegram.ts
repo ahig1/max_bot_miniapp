@@ -83,6 +83,29 @@ export function expandWebapp() {
 }
 
 /**
+ * Получение payload из initDataUnsafe.start_param (base64url-encoded JSON).
+ * Используется для чтения параметров, переданных через OpenAppButton в MAX.
+ */
+export function getLaunchPayload(): Record<string, any> {
+    const raw =
+        window.WebApp?.initDataUnsafe?.start_param ??
+        window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+    if (!raw) return {};
+    try {
+        // base64url → base64 → decode
+        const padded = raw.replace(/-/g, "+").replace(/_/g, "/");
+        const binString = window.atob(padded);
+        const bytes = new Uint8Array(binString.length);
+        for (let i = 0; i < binString.length; i++) {
+            bytes[i] = binString.charCodeAt(i);
+        }
+        return JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+        return {};
+    }
+}
+
+/**
  * Получение параметров темы
  */
 export function getWebAppTheme() {
