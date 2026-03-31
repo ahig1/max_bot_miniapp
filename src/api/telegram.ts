@@ -6,16 +6,21 @@ declare global {
     }
 }
 
-// Утилиты для определения текущей платформы (добавили знаки вопроса)
-export const isMax = typeof window !== 'undefined' && !!window.WebApp?.initData;
-export const isTg = typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
+// Утилиты для определения текущей платформы (вычисляются при каждом вызове,
+// чтобы SDK успел инициализироваться)
+export function getIsMax() {
+    return typeof window !== 'undefined' && !!window.WebApp?.initData;
+}
+export function getIsTg() {
+    return typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
+}
 
 /**
  * Получение строки авторизации (для отправки на бекенд)
  */
 export function getInitData(): string {
-    if (isMax) return window.WebApp?.initData || "";
-    if (isTg) return window.Telegram?.WebApp?.initData || "";
+    if (getIsMax()) return window.WebApp?.initData || "";
+    if (getIsTg()) return window.Telegram?.WebApp?.initData || "";
     return "";
 }
 
@@ -24,9 +29,9 @@ export function getInitData(): string {
  * В Telegram используется sendData, в MAX — POST на бекенд.
  */
 export async function sendDataToBot(data: unknown) {
-    if (isTg && window.Telegram?.WebApp?.sendData) {
+    if (getIsTg() && window.Telegram?.WebApp?.sendData) {
         await window.Telegram.WebApp.sendData(JSON.stringify(data));
-    } else if (isMax) {
+    } else if (getIsMax()) {
         const initDataUnsafe = window.WebApp?.initDataUnsafe;
         const userId = initDataUnsafe?.user?.id;
         const chatId = initDataUnsafe?.chat?.id;
@@ -60,9 +65,9 @@ export async function sendDataToBot(data: unknown) {
  * Закрытие окна мини-приложения
  */
 export function closeWebApp() {
-    if (isMax) {
+    if (getIsMax()) {
         window.WebApp.close();
-    } else if (isTg) {
+    } else if (getIsTg()) {
         window.Telegram?.WebApp?.close();
     }
 }
@@ -71,13 +76,13 @@ export function closeWebApp() {
  * Разворачивание на весь экран
  */
 export function expandWebapp() {
-    if (isMax) {
+    if (getIsMax()) {
         // В доке MAX нет метода expand(), приложения сами занимают нужный размер.
         // Но мы можем вызвать ready(), чтобы сообщить платформе о готовности.
         if (typeof window.WebApp.ready === 'function') {
             window.WebApp.ready();
         }
-    } else if (isTg) {
+    } else if (getIsTg()) {
         window.Telegram?.WebApp?.expand();
     }
 }
@@ -109,7 +114,7 @@ export function getLaunchPayload(): Record<string, any> {
  * Получение параметров темы
  */
 export function getWebAppTheme() {
-    if (isMax) {
+    if (getIsMax()) {
         // Документация MAX пока не передает цвета темы, возвращаем пустой объект
         return {}; 
     }
