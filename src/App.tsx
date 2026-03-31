@@ -61,17 +61,6 @@ function App() {
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
         <Suspense fallback={<Loading />}>
-          {!formType && (
-            <div style={{color:'white',padding:20,fontSize:14,wordBreak:'break-all'}}>
-              <p>DEBUG: formType is empty</p>
-              <p>search: {window.location.search}</p>
-              <p>hash: {window.location.hash}</p>
-              <p>WebApp.initData: {window.WebApp?.initData || 'N/A'}</p>
-              <p>WebApp.initDataUnsafe: {JSON.stringify(window.WebApp?.initDataUnsafe || {})}</p>
-              <p>WebApp.payload: {window.WebApp?.payload || 'N/A'}</p>
-              <p>Telegram.initData: {window.Telegram?.WebApp?.initData || 'N/A'}</p>
-            </div>
-          )}
           {formType === "personalData" && (
             <PersonalDataContainer
               phone={phone}
@@ -121,6 +110,20 @@ function App() {
   );
 }
 
+const decodeBase64UTF8 = (base64Str: string) => {
+  try {
+    const binString = window.atob(base64Str);
+    const bytes = new Uint8Array(binString.length);
+    for (let i = 0; i < binString.length; i++) {
+      bytes[i] = binString.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+  } catch (e) {
+    console.error("Ошибка декодирования Base64", e);
+    return null;
+  }
+};
+
 function str(value: string | null | undefined) {
   if (value == null) return undefined;
   return String(value).replaceAll("%20", " ");
@@ -143,20 +146,29 @@ function getParams(): URLSearchParams {
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   const payload = getLaunchPayload();
 
+  // === НАЧАЛО НОВОГО БЛОКА ===
+  const startParam = searchParams.get('WebAppStartParam') || hashParams.get('WebAppStartParam') || searchParams.get('start_param');
+  if (startParam) {
+    const decodedStr = decodeBase64UTF8(startParam);
+    if (decodedStr) {
+      try {
+        const data = JSON.parse(decodedStr);
+        // Заливаем раскодированные параметры прямо в searchParams
+        for (const [key, value] of Object.entries(data)) {
+          if (!searchParams.has(key) && value != null) {
+            searchParams.set(key, String(value));
+          }
+        }
+      } catch (e) {
+        console.error("Ошибка парсинга JSON из startParam", e);
+      }
+    }
+  }
+  // === КОНЕЦ НОВОГО БЛОКА ===
+
   // Merge: hash params fill in anything missing from search params
   for (const [key, value] of hashParams) {
-    if (!searchParams.has(key)) {
-      searchParams.set(key, value);
-    }
-  }
-  // Merge: payload fills in anything still missing
-  for (const [key, value] of Object.entries(payload)) {
-    if (!searchParams.has(key) && value != null) {
-      searchParams.set(key, String(value));
-    }
-  }
-  return searchParams;
-}
+// ... дальше твой оригинальный код без изменений
 
 function getOrdersFilterTgData() {
   const params = getParams();
