@@ -37,27 +37,39 @@ export async function sendDataToBot(data: unknown) {
         const chatId = initDataUnsafe?.chat?.id;
 
         if (!userId || !chatId) {
-            console.error("Cannot submit form: missing userId or chatId from initDataUnsafe");
+            alert("Ошибка: не хватает userId или chatId!");
+            console.error("Cannot submit form: missing userId or chatId", initDataUnsafe);
             return;
         }
 
-        const { API_URL } = await import("./common");
-        const response = await fetch(`${API_URL}/forms/submit`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                formData: data,
-                userId,
-                chatId,
-            }),
-        });
+        try {
+            const { API_URL } = await import("./common");
+            
+            // Пробуем отправить запрос
+            const response = await fetch(`${API_URL}/forms/submit`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    formData: data,
+                    userId,
+                    chatId,
+                }),
+            });
 
-        if (!response.ok) {
-            throw new Error(`Form submission failed: ${response.status}`);
+            // Если сервер вернул 404, 500 и т.д.
+            if (!response.ok) {
+                alert(`Ошибка бэкенда: ${response.status} ${response.statusText}\nПроверь, есть ли на сервере роут /forms/submit`);
+                return;
+            }
+
+            // Если всё ок — закрываем приложение
+            closeWebApp();
+            
+        } catch (error: any) {
+            // Если запрос вообще не дошел до сервера (неверный URL, CORS или сервер лежит)
+            alert(`Сетевая ошибка: ${error.message}\nУбедись, что API_URL правильный и сервер запущен.`);
+            console.error("Fetch error:", error);
         }
-
-        // Close the mini app after successful submission
-        closeWebApp();
     }
 }
 
