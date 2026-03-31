@@ -167,8 +167,22 @@ function getParams(): URLSearchParams {
   // === КОНЕЦ НОВОГО БЛОКА ===
 
   // Merge: hash params fill in anything missing from search params
+// Merge: hash params fill in anything missing from search params
   for (const [key, value] of hashParams) {
-// ... дальше твой оригинальный код без изменений
+    if (!searchParams.has(key)) {
+      searchParams.set(key, value);
+    }
+  }
+
+  // Merge: payload fills in anything still missing
+  for (const [key, value] of Object.entries(payload)) {
+    if (!searchParams.has(key) && value != null) {
+      searchParams.set(key, String(value));
+    }
+  }
+  
+  return searchParams;
+}
 
 function getOrdersFilterTgData() {
   const params = getParams();
