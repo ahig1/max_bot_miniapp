@@ -61,6 +61,17 @@ function App() {
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
         <Suspense fallback={<Loading />}>
+          {!formType && (
+            <div style={{color:'white',padding:20,fontSize:14,wordBreak:'break-all'}}>
+              <p>DEBUG: formType is empty</p>
+              <p>search: {window.location.search}</p>
+              <p>hash: {window.location.hash}</p>
+              <p>WebApp.initData: {window.WebApp?.initData || 'N/A'}</p>
+              <p>WebApp.initDataUnsafe: {JSON.stringify(window.WebApp?.initDataUnsafe || {})}</p>
+              <p>WebApp.payload: {window.WebApp?.payload || 'N/A'}</p>
+              <p>Telegram.initData: {window.Telegram?.WebApp?.initData || 'N/A'}</p>
+            </div>
+          )}
           {formType === "personalData" && (
             <PersonalDataContainer
               phone={phone}
