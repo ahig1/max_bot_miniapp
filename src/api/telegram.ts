@@ -29,47 +29,51 @@ export function getInitData(): string {
  * В Telegram используется sendData, в MAX — POST на бекенд.
  */
 export async function sendDataToBot(data: unknown) {
+    console.log("sendDataToBot called", { isTg: getIsTg(), isMax: getIsMax(), data });
+
     if (getIsTg() && window.Telegram?.WebApp?.sendData) {
         await window.Telegram.WebApp.sendData(JSON.stringify(data));
-    } else if (getIsMax()) {
-        const initDataUnsafe = window.WebApp?.initDataUnsafe;
-        const userId = initDataUnsafe?.user?.id;
-        const chatId = initDataUnsafe?.chat?.id;
+        return;
+    }
 
-        if (!userId || !chatId) {
-            alert("Ошибка: не хватает userId или chatId!");
-            console.error("Cannot submit form: missing userId or chatId", initDataUnsafe);
+    // Для MAX (или если платформа не определена — пробуем через REST API)
+    const initDataUnsafe =
+        window.WebApp?.initDataUnsafe ??
+        window.Telegram?.WebApp?.initDataUnsafe;
+    const userId = initDataUnsafe?.user?.id;
+    const chatId = initDataUnsafe?.chat?.id;
+
+    console.log("sendDataToBot: initDataUnsafe", initDataUnsafe);
+
+    if (!userId || !chatId) {
+        alert(`DEBUG: userId=${userId}, chatId=${chatId}, isMax=${getIsMax()}, WebApp=${!!window.WebApp}, initData=${!!window.WebApp?.initData}`);
+        return;
+    }
+
+    try {
+        const { API_URL } = await import("./common");
+        console.log("sendDataToBot: posting to", `${API_URL}/forms/submit`);
+
+        const response = await fetch(`${API_URL}/forms/submit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                formData: data,
+                userId,
+                chatId,
+            }),
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            alert(`Ошибка сервера: ${response.status}\n${text}`);
             return;
         }
 
-        try {
-            const { API_URL } = await import("./common");
-            
-            // Пробуем отправить запрос
-            const response = await fetch(`${API_URL}/forms/submit`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    formData: data,
-                    userId,
-                    chatId,
-                }),
-            });
-
-            // Если сервер вернул 404, 500 и т.д.
-            if (!response.ok) {
-                alert(`Ошибка бэкенда: ${response.status} ${response.statusText}\nПроверь, есть ли на сервере роут /forms/submit`);
-                return;
-            }
-
-            // Если всё ок — закрываем приложение
-            closeWebApp();
-            
-        } catch (error: any) {
-            // Если запрос вообще не дошел до сервера (неверный URL, CORS или сервер лежит)
-            alert(`Сетевая ошибка: ${error.message}\nУбедись, что API_URL правильный и сервер запущен.`);
-            console.error("Fetch error:", error);
-        }
+        closeWebApp();
+    } catch (error: any) {
+        alert(`Сетевая ошибка: ${error.message}`);
+        console.error("sendDataToBot fetch error:", error);
     }
 }
 
