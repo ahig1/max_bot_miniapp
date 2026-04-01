@@ -6,21 +6,16 @@ declare global {
     }
 }
 
-// Утилиты для определения текущей платформы (вычисляются при каждом вызове,
-// чтобы SDK успел инициализироваться)
-export function getIsMax() {
-    return typeof window !== 'undefined' && !!window.WebApp?.initData;
-}
-export function getIsTg() {
-    return typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
-}
+// Утилиты для определения текущей платформы (добавили знаки вопроса)
+export const isMax = typeof window !== 'undefined' && !!window.WebApp?.initData;
+export const isTg = typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
 
 /**
  * Получение строки авторизации (для отправки на бекенд)
  */
 export function getInitData(): string {
-    if (getIsMax()) return window.WebApp?.initData || "";
-    if (getIsTg()) return window.Telegram?.WebApp?.initData || "";
+    if (isMax) return window.WebApp?.initData || "";
+    if (isTg) return window.Telegram?.WebApp?.initData || "";
     return "";
 }
 
@@ -29,39 +24,31 @@ export function getInitData(): string {
  * В Telegram используется sendData, в MAX — POST на бекенд.
  */
 export async function sendDataToBot(data: unknown) {
-    console.log("sendDataToBot called", { isTg: getIsTg(), isMax: getIsMax(), data });
-
-    if (getIsTg() && window.Telegram?.WebApp?.sendData) {
-        await window.Telegram.WebApp.sendData(JSON.stringify(data));
+    if (isTg && window.Telegram?.WebApp?.sendData) {
+        window.Telegram.WebApp.sendData(JSON.stringify(data));
         return;
     }
 
-    // Для MAX (или если платформа не определена — пробуем через REST API)
+    // MAX: отправляем данные на бекенд через REST API,
+    // бекенд сам отправит сообщение в чат
     const initDataUnsafe =
         window.WebApp?.initDataUnsafe ??
         window.Telegram?.WebApp?.initDataUnsafe;
     const userId = initDataUnsafe?.user?.id;
     const chatId = initDataUnsafe?.chat?.id;
 
-    console.log("sendDataToBot: initDataUnsafe", initDataUnsafe);
-
     if (!userId || !chatId) {
-        alert(`DEBUG: userId=${userId}, chatId=${chatId}, isMax=${getIsMax()}, WebApp=${!!window.WebApp}, initData=${!!window.WebApp?.initData}`);
+        console.error("sendDataToBot: missing userId or chatId", { userId, chatId, initDataUnsafe });
+        alert("Ошибка: не удалось определить userId или chatId");
         return;
     }
 
     try {
         const { API_URL } = await import("./common");
-        console.log("sendDataToBot: posting to", `${API_URL}/forms/submit`);
-
         const response = await fetch(`${API_URL}/forms/submit`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                formData: data,
-                userId,
-                chatId,
-            }),
+            body: JSON.stringify({ formData: data, userId, chatId }),
         });
 
         if (!response.ok) {
@@ -81,9 +68,9 @@ export async function sendDataToBot(data: unknown) {
  * Закрытие окна мини-приложения
  */
 export function closeWebApp() {
-    if (getIsMax()) {
+    if (isMax) {
         window.WebApp.close();
-    } else if (getIsTg()) {
+    } else if (isTg) {
         window.Telegram?.WebApp?.close();
     }
 }
@@ -92,13 +79,13 @@ export function closeWebApp() {
  * Разворачивание на весь экран
  */
 export function expandWebapp() {
-    if (getIsMax()) {
+    if (isMax) {
         // В доке MAX нет метода expand(), приложения сами занимают нужный размер.
         // Но мы можем вызвать ready(), чтобы сообщить платформе о готовности.
         if (typeof window.WebApp.ready === 'function') {
             window.WebApp.ready();
         }
-    } else if (getIsTg()) {
+    } else if (isTg) {
         window.Telegram?.WebApp?.expand();
     }
 }
@@ -130,9 +117,9 @@ export function getLaunchPayload(): Record<string, any> {
  * Получение параметров темы
  */
 export function getWebAppTheme() {
-    if (getIsMax()) {
+    if (isMax) {
         // Документация MAX пока не передает цвета темы, возвращаем пустой объект
-        return {}; 
+        return {};
     }
     return window.Telegram?.WebApp?.themeParams ?? {};
 }
