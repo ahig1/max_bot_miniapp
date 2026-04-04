@@ -1,4 +1,4 @@
-// Декларируем глобальные переменные для TypeScript
+// Декларируем глобальные переменства для TypeScript
 declare global {
     interface Window {
         Telegram?: { WebApp: any };
@@ -6,16 +6,25 @@ declare global {
     }
 }
 
-// Утилиты для определения текущей платформы (добавили знаки вопроса)
-export const isMax = typeof window !== 'undefined' && !!window.WebApp?.initData;
+// Ленивое определение платформы (не на этапе загрузки модуля)
+export function getIsMax(): boolean {
+    return typeof window !== 'undefined' && !!window.WebApp;
+}
+
+export function getIsTg(): boolean {
+    return typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
+}
+
+// Обратная совместимость
+export const isMax = typeof window !== 'undefined' && !!window.WebApp;
 export const isTg = typeof window !== 'undefined' && !!window.Telegram?.WebApp?.initData;
 
 /**
  * Получение строки авторизации (для отправки на бекенд)
  */
 export function getInitData(): string {
-    if (isMax) return window.WebApp?.initData || "";
-    if (isTg) return window.Telegram?.WebApp?.initData || "";
+    if (getIsMax()) return window.WebApp?.initData || "";
+    if (getIsTg()) return window.Telegram?.WebApp?.initData || "";
     return "";
 }
 
@@ -24,7 +33,7 @@ export function getInitData(): string {
  * В Telegram используется sendData, в MAX — POST на бекенд.
  */
 export async function sendDataToBot(data: unknown) {
-    if (isTg && window.Telegram?.WebApp?.sendData) {
+    if (getIsTg() && window.Telegram?.WebApp?.sendData) {
         window.Telegram.WebApp.sendData(JSON.stringify(data));
         return;
     }
@@ -68,9 +77,9 @@ export async function sendDataToBot(data: unknown) {
  * Закрытие окна мини-приложения
  */
 export function closeWebApp() {
-    if (isMax) {
+    if (getIsMax()) {
         window.WebApp.close();
-    } else if (isTg) {
+    } else if (getIsTg()) {
         window.Telegram?.WebApp?.close();
     }
 }
@@ -79,36 +88,52 @@ export function closeWebApp() {
  * Разворачивание на весь экран
  */
 export function expandWebapp() {
-    if (isMax) {
-        // В доке MAX нет метода expand(), приложения сами занимают нужный размер.
-        // Но мы можем вызвать ready(), чтобы сообщить платформе о готовности.
+    if (getIsMax()) {
         if (typeof window.WebApp.ready === 'function') {
             window.WebApp.ready();
         }
-    } else if (isTg) {
+    } else if (getIsTg()) {
         window.Telegram?.WebApp?.expand();
     }
 }
 
 /**
- * Получение payload из initDataUnsafe.start_param (base64url-encoded JSON).
- * Используется для чтения параметров, переданных через OpenAppButton в MAX.
+ * Получение payload из initDataUnsafe.
+ * MAX передаёт payload из OpenAppButton в start_param.
  */
 export function getLaunchPayload(): Record<string, any> {
-    const raw =
-        window.WebApp?.initDataUnsafe?.start_param ??
-        window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-    if (!raw) return {};
+    const webapp = window.WebApp ?? window.Telegram?.WebApp;
+    const unsafe = webapp?.initDataUnsafe;
+
+    console.log("[getLaunchPayload] window.WebApp:", !!window.WebApp);
+    console.log("[getLaunchPayload] window.WebApp?.initData:", window.WebApp?.initData?.substring?.(0, 100));
+    console.log("[getLaunchPayload] initDataUnsafe:", JSON.stringify(unsafe)?.substring(0, 300));
+    console.log("[getLaunchPayload] start_param:", unsafe?.start_param);
+    console.log("[getLaunchPayload] payload:", unsafe?.payload);
+
+    // MAX может передать payload в start_param или payload
+    const raw = unsafe?.start_param ?? unsafe?.payload;
+
+    if (!raw) {
+        console.warn("[getLaunchPayload] No start_param or payload found in initDataUnsafe");
+        return {};
+    }
+
     try {
         // base64url → base64 → decode
         const padded = raw.replace(/-/g, "+").replace(/_/g, "/");
-        const binString = window.atob(padded);
+        const remainder = padded.length % 4;
+        const finalStr = remainder ? padded + "=".repeat(4 - remainder) : padded;
+        const binString = window.atob(finalStr);
         const bytes = new Uint8Array(binString.length);
         for (let i = 0; i < binString.length; i++) {
             bytes[i] = binString.charCodeAt(i);
         }
-        return JSON.parse(new TextDecoder().decode(bytes));
-    } catch {
+        const decoded = JSON.parse(new TextDecoder().decode(bytes));
+        console.log("[getLaunchPayload] Decoded payload:", decoded);
+        return decoded;
+    } catch (e) {
+        console.error("[getLaunchPayload] Failed to decode payload:", raw, e);
         return {};
     }
 }
@@ -117,8 +142,7 @@ export function getLaunchPayload(): Record<string, any> {
  * Получение параметров темы
  */
 export function getWebAppTheme() {
-    if (isMax) {
-        // Документация MAX пока не передает цвета темы, возвращаем пустой объект
+    if (getIsMax()) {
         return {};
     }
     return window.Telegram?.WebApp?.themeParams ?? {};

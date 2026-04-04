@@ -52,6 +52,12 @@ function App() {
 
   useEffect(() => {
     expandWebapp();
+    console.log("[App] formType:", formType);
+    console.log("[App] phone:", phone);
+    console.log("[App] city:", city);
+    console.log("[App] window.WebApp:", !!window.WebApp);
+    console.log("[App] window.WebApp?.initDataUnsafe:", JSON.stringify(window.WebApp?.initDataUnsafe)?.substring(0, 500));
+    console.log("[App] window.location:", window.location.href);
   }, []);
 
   const theme = useTheme();
