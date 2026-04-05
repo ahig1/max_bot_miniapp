@@ -11,6 +11,16 @@ export default defineConfig({
   })],
 
   build: {
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Выносим тяжёлые зависимости в отдельные чанки —
+          // они кешируются браузером и не перекачиваются при обновлении кода
+          'mui': ['@mui/material', '@emotion/react', '@emotion/styled'],
+          'react-vendor': ['react', 'react-dom'],
+        }
+      }
+    }
   }
 })
