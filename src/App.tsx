@@ -2,7 +2,7 @@ import { CssBaseline } from "@mui/material";
 import { ThemeProvider } from "@mui/material/styles";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Suspense, lazy, useEffect, useMemo } from "react";
-import { expandWebapp, getLaunchPayload } from "./api/telegram";
+import { closeWebApp, expandWebapp, getLaunchPayload } from "./api/telegram";
 import { Loading } from "./components/Loading/Loading";
 import { useTheme } from "./hooks/useTheme";
 import { ManagerOrderStatusType, PersonalOrderStatusType, RegistrationType } from "./pages/OrdersFilter/OrderFilterModel";
@@ -58,6 +58,26 @@ function App() {
     console.log("[App] window.WebApp:", !!window.WebApp);
     console.log("[App] window.WebApp?.initDataUnsafe:", JSON.stringify(window.WebApp?.initDataUnsafe)?.substring(0, 500));
     console.log("[App] window.location:", window.location.href);
+
+    // Если мини-приложение открыто без formType (кнопка бота) — отправляем /start и закрываем
+    if (!formType) {
+      const webapp = window.WebApp ?? window.Telegram?.WebApp;
+      const unsafe = webapp?.initDataUnsafe;
+      const userId = unsafe?.user?.id;
+      const chatId = unsafe?.chat?.id;
+      if (userId && chatId) {
+        const apiUrl = import.meta.env.VITE_API_URL;
+        fetch(`${apiUrl}/forms/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ formData: { command: "/start" }, userId, chatId }),
+        }).finally(() => {
+          closeWebApp();
+        });
+      } else {
+        closeWebApp();
+      }
+    }
   }, []);
 
   const theme = useTheme();
