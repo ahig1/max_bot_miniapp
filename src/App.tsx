@@ -1,7 +1,7 @@
 import { CssBaseline } from "@mui/material";
 import { ThemeProvider } from "@mui/material/styles";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Suspense, lazy, useEffect, useMemo } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { closeWebApp, expandWebapp, getLaunchPayload } from "./api/telegram";
 import { Loading } from "./components/Loading/Loading";
 import { useTheme } from "./hooks/useTheme";
@@ -50,6 +50,8 @@ function App() {
     initialEndDate,
   } = useMemo(() => getOrdersFilterTgData(), []);
 
+  const [isClosing, setIsClosing] = useState(false);
+
   useEffect(() => {
     expandWebapp();
     console.log("[App] formType:", formType);
@@ -61,6 +63,7 @@ function App() {
 
     // Если мини-приложение открыто без formType (кнопка бота) — отправляем /start и закрываем
     if (!formType) {
+      setIsClosing(true);
       const webapp = window.WebApp ?? window.Telegram?.WebApp;
       const unsafe = webapp?.initDataUnsafe;
       const userId = unsafe?.user?.id;
@@ -87,6 +90,7 @@ function App() {
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
         <Suspense fallback={<Loading />}>
+          {isClosing && <Loading />}
           {formType === "personalData" && (
             <PersonalDataContainer
               phone={phone}
