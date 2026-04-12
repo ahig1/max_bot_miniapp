@@ -68,18 +68,23 @@ function App() {
       const unsafe = webapp?.initDataUnsafe;
       const userId = unsafe?.user?.id;
       const chatId = unsafe?.chat?.id;
+      console.log("[App] No formType — firing /start. userId:", userId, "chatId:", chatId);
       if (userId && chatId) {
         const apiUrl = import.meta.env.VITE_API_URL;
-        fetch(`${apiUrl}/forms/submit`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ formData: { command: "/start" }, userId, chatId }),
-        }).finally(() => {
-          closeWebApp();
-        });
+        try {
+          fetch(`${apiUrl}/forms/submit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ formData: { command: "/start" }, userId, chatId }),
+            keepalive: true,
+          }).catch((e) => console.error("[App] /start fetch error:", e));
+        } catch (e) {
+          console.error("[App] /start fetch threw:", e);
+        }
       } else {
-        closeWebApp();
+        console.warn("[App] /start NOT fired — missing userId or chatId");
       }
+      setTimeout(() => closeWebApp(), 150);
     }
   }, []);
 
