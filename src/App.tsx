@@ -89,8 +89,8 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
-        <Suspense fallback={<Loading />}>
-          {isClosing && <Loading />}
+        <Suspense fallback={isClosing ? null : <Loading />}>
+          {isClosing && null}
           {formType === "personalData" && (
             <PersonalDataContainer
               phone={phone}
